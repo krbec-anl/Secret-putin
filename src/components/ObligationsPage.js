@@ -469,26 +469,25 @@ export default function ObligationsPage({ matrix, onUpdateCell, onOpenPropertyPr
                   {revisionTypes.map((rt) => (
                     <th key={rt.id} style={{
                       ...s.th, textAlign: 'center', minWidth: 130, padding: '14px 10px',
-                      verticalAlign: 'bottom',
+                      verticalAlign: 'bottom', position: 'relative',
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 4 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{rt.name}</div>
-                        <button
-                          onClick={() => setConfirmDeleteCol(rt.name)}
-                          style={{
-                            background: 'none', border: 'none', cursor: 'pointer', color: T.textMuted,
-                            padding: '2px 4px', display: 'flex', alignItems: 'center', borderRadius: 4,
-                            opacity: 0.4, transition: 'opacity .15s',
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = T.red; }}
-                          onMouseLeave={e => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.color = T.textMuted; }}
-                          title={`Smazat sloupec ${rt.name}`}
-                        >
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                          </svg>
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setConfirmDeleteCol(rt.name)}
+                        style={{
+                          position: 'absolute', top: 6, right: 6,
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: '#FF385C', fontSize: 18, fontWeight: 700,
+                          lineHeight: 1, padding: '2px 5px', borderRadius: 4,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all .15s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#c1112e'; e.currentTarget.style.transform = 'scale(1.25)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#FF385C'; e.currentTarget.style.transform = 'scale(1)'; }}
+                        title={`Smazat sloupec ${rt.name}`}
+                      >
+                        &times;
+                      </button>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 4 }}>{rt.name}</div>
                       {rt.frequency && <div style={{ fontWeight: 500, fontSize: 12, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{rt.frequency}</div>}
                       {rt.supplier && <div style={{ fontWeight: 500, fontSize: 12, color: T.cyan, marginTop: 2 }}>{rt.supplier}</div>}
                     </th>
