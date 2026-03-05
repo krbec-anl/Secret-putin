@@ -13,6 +13,7 @@ export const NAV_SECTIONS = [
   {
     title: 'Správa',
     items: [
+      { id: 'propertyList', label: 'Seznam nemovitostí',  icon: 'list' },
       { id: 'finance',      label: 'Finance',             icon: 'finance' },
       { id: 'obligations',  label: 'Povinnosti a revize', icon: 'clipboard' },
       { id: 'maintenance',  label: 'Údržba',              icon: 'wrench' },

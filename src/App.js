@@ -6,6 +6,7 @@ import {
   INITIAL_PROPERTIES, INITIAL_MATRIX, INITIAL_DOCUMENTS,
   NAV_SECTIONS, NAV_FLAT,
 } from './data/mockData';
+const APP_VERSION = '0.3.0';
 
 import Dashboard from './components/Dashboard';
 import PropertiesPage from './components/PropertiesPage';
@@ -71,7 +72,8 @@ function AppInner() {
   }, []);
 
   const openPropertyProfile = useCallback((propertyId) => {
-    setPanelPropertyId(propertyId);
+    setProfilePropertyId(propertyId);
+    setPage('propertyProfile');
   }, []);
 
   const openPropertyProfileByName = useCallback((name) => {
@@ -102,7 +104,7 @@ function AppInner() {
   const handleDeleteProperty = useCallback((propId) => {
     setProperties(prev => prev.filter(p => p.id !== propId));
     setDocuments(prev => prev.filter(d => d.propertyId !== propId));
-    setPage('properties');
+    setPage('propertyList');
     setProfilePropertyId(null);
   }, []);
 
@@ -123,6 +125,7 @@ function AppInner() {
     switch (page) {
       case 'dashboard': return <Dashboard properties={properties} oblMatrix={oblMatrix} />;
       case 'properties': return <PropertiesPage properties={properties} onOpenProfile={openPropertyProfile} onAddProperty={handleAddProperty} />;
+      case 'propertyList': return <PropertiesPage properties={properties} onOpenProfile={openPropertyProfile} onAddProperty={handleAddProperty} />;
       case 'tenants': return <TenantsPage properties={properties} />;
       case 'finance': return <FinancePage properties={properties} />;
       case 'obligations': return <ObligationsPage matrix={oblMatrix} onUpdateCell={handleUpdateCell} onOpenPropertyProfile={openPropertyProfileByName} />;
@@ -133,7 +136,7 @@ function AppInner() {
         <PropertyProfilePage
           propertyId={profilePropertyId}
           properties={properties}
-          onBack={() => setPage('properties')}
+          onBack={() => setPage('propertyList')}
           documents={documents}
           onAddDoc={handleAddDoc}
           onDeleteDoc={handleDeleteDoc}
@@ -194,7 +197,7 @@ function AppInner() {
                 {section.title}
               </div>
               {section.items.map(item => {
-                const active = page === item.id || (page === 'propertyProfile' && item.id === 'properties');
+                const active = page === item.id || (page === 'propertyProfile' && item.id === 'propertyList');
                 return (
                   <button key={item.id}
                     onClick={() => {
@@ -255,7 +258,7 @@ function AppInner() {
           padding: '14px 24px', borderTop: `1px solid ${T.border}`,
           fontSize: 12, color: T.textMuted, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <span style={{ fontWeight: 500 }}>v1.0</span>
+          <span style={{ fontWeight: 500 }}>v{APP_VERSION}</span>
           <span>2026</span>
         </div>
       </aside>
@@ -278,12 +281,13 @@ function AppInner() {
             )}
             <span style={{ fontSize: 16, fontWeight: 600 }}>
               {page === 'propertyProfile'
-                ? `Nemovitosti / ${properties.find(p => p.id === profilePropertyId)?.name || ''}`
+                ? `Seznam nemovitostí / ${properties.find(p => p.id === profilePropertyId)?.name || ''}`
                 : (NAV_FLAT.find(n => n.id === page)?.label || 'Dashboard')
               }
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>v{APP_VERSION}</span>
             <span style={{ fontSize: 13, color: T.textDim }}>
               {new Date().toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </span>

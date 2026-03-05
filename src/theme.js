@@ -26,20 +26,23 @@ export const STATUS_COLORS = {
 
 // ---------- CSS GENERATOR ----------
 
-function makeCSS(T) {
+function makeCSS(T, isDark) {
   return `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { color-scheme: ${isDark ? 'dark' : 'light'}; }
     body {
       background: ${T.bg}; color: ${T.text};
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 15px; line-height: 1.5;
       -webkit-font-smoothing: antialiased;
+      transition: background .3s ease, color .3s ease;
     }
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: ${T.textMuted}; }
-    input, select, textarea { font-family: inherit; font-size: inherit; }
+    input, select, textarea { font-family: inherit; font-size: inherit; color-scheme: ${isDark ? 'dark' : 'light'}; }
+    input::placeholder, textarea::placeholder { color: ${T.textMuted}; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     .fade-in { animation: fadeIn .3s ease; }
     @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
@@ -126,8 +129,8 @@ export function ThemeProvider({ children }) {
       style.id = 'app-theme-css';
       document.head.appendChild(style);
     }
-    style.textContent = makeCSS(value.T);
-  }, [value.T]);
+    style.textContent = makeCSS(value.T, value.isDark);
+  }, [value.T, value.isDark]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
@@ -137,9 +140,3 @@ export function useTheme() {
   if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
   return ctx;
 }
-
-// ---------- BACKWARD COMPAT ----------
-export const T = DARK;
-export const s = makeStyles(DARK, true);
-export const tooltipStyle = makeStyles(DARK, true).tooltip;
-export const CSS = makeCSS(DARK);
