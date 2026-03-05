@@ -9,21 +9,27 @@ import { SectionTitle } from './shared';
 export default function ObligationsPage({ matrix, onUpdateCell }) {
   const [view, setView] = useState('matrix');
   const [detail, setDetail] = useState(null); // { object, revType }
+
+  // Panel edit state (local until Save)
+  const [panelDeadline, setPanelDeadline] = useState('');
+  const [panelCompany, setPanelCompany] = useState('');
+  const [panelDocs, setPanelDocs] = useState([]);
   const [uploadName, setUploadName] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [editDeadline, setEditDeadline] = useState('');
   const fileRef = useRef(null);
 
   const getCell = useCallback((obj, rt) => {
-    return matrix[obj]?.[rt] || { deadline: null, docs: [] };
+    return matrix[obj]?.[rt] || { deadline: null, docs: [], company: '' };
   }, [matrix]);
 
-  // Open detail modal
+  // Open sliding panel
   const openDetail = (obj, rt) => {
     const cell = getCell(obj, rt);
     setDetail({ object: obj, revType: rt });
-    setEditDeadline(cell.deadline || '');
+    setPanelDeadline(cell.deadline || '');
+    setPanelCompany(cell.company || '');
+    setPanelDocs([...cell.docs]);
     setShowUpload(false);
     setShowHistory(false);
     setUploadName('');
@@ -36,37 +42,29 @@ export default function ObligationsPage({ matrix, onUpdateCell }) {
     setShowHistory(false);
   };
 
-  // Save deadline change
-  const saveDeadline = (newDeadline) => {
+  // Save all panel changes
+  const handleSave = () => {
     if (!detail) return;
-    const cell = getCell(detail.object, detail.revType);
-    onUpdateCell(detail.object, detail.revType, { ...cell, deadline: newDeadline || null });
-    setEditDeadline(newDeadline || '');
+    onUpdateCell(detail.object, detail.revType, {
+      deadline: panelDeadline || null,
+      docs: panelDocs,
+      company: panelCompany,
+    });
+    closeDetail();
   };
 
-  // Remove deadline
-  const removeDeadline = () => {
-    if (!detail) return;
-    const cell = getCell(detail.object, detail.revType);
-    onUpdateCell(detail.object, detail.revType, { ...cell, deadline: null });
-    setEditDeadline('');
-  };
-
-  // Upload new doc (pushes existing to history)
+  // Upload new doc (into local panel state)
   const handleUploadDoc = () => {
     if (!detail || !uploadName.trim()) return;
-    const cell = getCell(detail.object, detail.revType);
     const newDoc = { id: 'rd' + Date.now(), name: uploadName, date: new Date().toISOString().split('T')[0], size: '— KB' };
-    onUpdateCell(detail.object, detail.revType, { ...cell, docs: [newDoc, ...cell.docs] });
+    setPanelDocs([newDoc, ...panelDocs]);
     setUploadName('');
     setShowUpload(false);
   };
 
-  // Delete a specific doc
+  // Delete a specific doc (from local panel state)
   const handleDeleteDoc = (docId) => {
-    if (!detail) return;
-    const cell = getCell(detail.object, detail.revType);
-    onUpdateCell(detail.object, detail.revType, { ...cell, docs: cell.docs.filter(d => d.id !== docId) });
+    setPanelDocs(panelDocs.filter(d => d.id !== docId));
   };
 
   // Build flat list for list/timeline views
@@ -76,7 +74,7 @@ export default function ObligationsPage({ matrix, onUpdateCell }) {
       REV_TYPES.forEach(rt => {
         const cell = matrix[obj]?.[rt.name];
         if (cell?.deadline) {
-          items.push({ object: obj, type: rt.name, supplier: rt.supplier, period: rt.period, date: cell.deadline, docs: cell.docs });
+          items.push({ object: obj, type: rt.name, supplier: rt.supplier, period: rt.period, date: cell.deadline, docs: cell.docs, company: cell.company });
         }
       });
     });
@@ -93,236 +91,290 @@ export default function ObligationsPage({ matrix, onUpdateCell }) {
     return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
   }, [allItems]);
 
-  // -------- DETAIL MODAL --------
-  const detailCell = detail ? getCell(detail.object, detail.revType) : null;
+  // -------- SLIDING PANEL --------
+  const currentDoc = panelDocs[0] || null;
+  const historyDocs = panelDocs.slice(1);
   const detailRt = detail ? REV_TYPES.find(r => r.name === detail.revType) : null;
-  const currentDoc = detailCell?.docs?.[0] || null;
-  const historyDocs = detailCell?.docs?.slice(1) || [];
+  const lastRevisionDate = currentDoc?.date || null;
 
-  const DetailModal = detail && (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={closeDetail} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} />
+  const SlidingPanel = (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      pointerEvents: detail ? 'auto' : 'none',
+    }}>
+      {/* Backdrop */}
+      <div
+        onClick={closeDetail}
+        style={{
+          position: 'absolute', inset: 0,
+          background: detail ? 'rgba(0,0,0,0.5)' : 'transparent',
+          backdropFilter: detail ? 'blur(4px)' : 'none',
+          transition: 'all .3s ease',
+        }}
+      />
+
+      {/* Panel */}
       <div style={{
-        ...s.card, position: 'relative', zIndex: 1, maxWidth: 540, width: '92%',
-        padding: 0, border: `1px solid ${T.accent}33`, maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+        position: 'absolute', top: 0, right: 0, bottom: 0,
+        width: 480, maxWidth: '100vw',
+        background: T.sidebar,
+        borderLeft: `1px solid ${T.border}`,
+        transform: detail ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform .3s ease',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: detail ? '-8px 0 32px rgba(0,0,0,0.4)' : 'none',
       }}>
-        {/* Header */}
-        <div style={{
-          padding: '18px 22px 14px', borderBottom: `1px solid ${T.border}`,
-          background: detailCell.deadline ? getRevColor(detailCell.deadline) + '0a' : 'transparent',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 3 }}>{detail.object}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 13, color: T.accent, fontWeight: 600 }}>{detail.revType}</span>
-                {detailRt?.period && <span style={{ fontSize: 11, color: T.textMuted }}>({detailRt.period})</span>}
-                {detailRt?.supplier && <span style={{ fontSize: 11, color: T.cyan }}>Dodavatel: {detailRt.supplier}</span>}
-              </div>
-            </div>
-            <button onClick={closeDetail} style={{
-              background: 'none', border: 'none', color: T.textDim, fontSize: 20, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
-            }}>{'\u2715'}</button>
-          </div>
-        </div>
-
-        {/* Scrollable body */}
-        <div style={{ padding: '16px 22px 20px', overflowY: 'auto', flex: 1 }}>
-
-          {/* SECTION: Deadline */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
-              Termín revize
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <input
-                type="date"
-                value={editDeadline}
-                onChange={e => {
-                  setEditDeadline(e.target.value);
-                  saveDeadline(e.target.value);
-                }}
-                style={{
-                  ...s.input, width: 'auto', minWidth: 180,
-                  colorScheme: 'dark',
-                }}
-              />
-              {detailCell.deadline && (
-                <span style={{
-                  ...s.tag(getRevColor(detailCell.deadline)),
-                  fontSize: 12, padding: '4px 10px',
-                }}>
-                  {getRevLabel(detailCell.deadline)}
-                </span>
-              )}
-              {detailCell.deadline && (
-                <button onClick={removeDeadline} style={{
-                  ...s.btn(false), fontSize: 11, padding: '6px 10px',
-                  color: T.red, border: `1px solid ${T.red}33`,
-                  display: 'flex', alignItems: 'center', gap: 4,
-                }}>
-                  {ICONS.trash} Smazat termín
-                </button>
-              )}
-              {!detailCell.deadline && (
-                <span style={{ fontSize: 12, color: T.textMuted, fontStyle: 'italic' }}>Nenastaveno</span>
-              )}
-            </div>
-          </div>
-
-          {/* SECTION: Current document */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
-              Dokument
-            </div>
-
-            {currentDoc ? (
-              <div style={{
-                background: T.accent + '0d', border: `1px solid ${T.accent}22`, borderRadius: 10, padding: 14,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-                    <span style={{ color: T.accent, display: 'flex', flexShrink: 0 }}>{ICONS.doc}</span>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentDoc.name}</div>
-                      <div style={{ fontSize: 11, color: T.textMuted }}>{fmtDate(currentDoc.date)} · {currentDoc.size}</div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                    <button style={{
-                      background: T.accent + '22', color: T.accent, border: 'none',
-                      borderRadius: 6, padding: '5px 8px', cursor: 'pointer', display: 'flex',
-                    }} title="Zobrazit">{ICONS.eye}</button>
-                    <button style={{
-                      background: T.green + '22', color: T.green, border: 'none',
-                      borderRadius: 6, padding: '5px 8px', cursor: 'pointer', display: 'flex',
-                    }} title="Stáhnout">{ICONS.download}</button>
-                    <button onClick={() => handleDeleteDoc(currentDoc.id)} style={{
-                      background: T.red + '22', color: T.red, border: 'none',
-                      borderRadius: 6, padding: '5px 8px', cursor: 'pointer', display: 'flex',
-                    }} title="Smazat">{ICONS.trash}</button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div style={{ color: T.textMuted, fontSize: 13, fontStyle: 'italic', marginBottom: 4 }}>
-                Žádný dokument
-              </div>
-            )}
-          </div>
-
-          {/* Upload new doc */}
-          {!showUpload ? (
-            <button onClick={() => setShowUpload(true)} style={{
-              ...s.btn(false), display: 'flex', alignItems: 'center', gap: 6,
-              border: `1px dashed ${T.accent}44`, color: T.accent, width: '100%', justifyContent: 'center',
-              padding: '10px 16px', marginBottom: 16,
-            }}
-              onMouseEnter={e => { e.currentTarget.style.background = T.accent + '11'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-            >
-              {ICONS.upload} {currentDoc ? 'Nahrát nový (stávající se přesune do historie)' : 'Nahrát dokument'}
-            </button>
-          ) : (
+        {detail && (
+          <>
+            {/* Header */}
             <div style={{
-              background: T.bg, borderRadius: 10, padding: 14, marginBottom: 16,
-              border: `1px solid ${T.accent}33`,
+              padding: '20px 24px 16px',
+              borderBottom: `1px solid ${T.border}`,
+              background: panelDeadline ? getRevColor(panelDeadline) + '08' : 'transparent',
             }}>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Nahrát nový dokument</div>
-              {currentDoc && (
-                <div style={{
-                  fontSize: 11, color: T.orange, marginBottom: 8, padding: '6px 8px',
-                  background: T.orange + '11', borderRadius: 6,
-                }}>
-                  Stávající „{currentDoc.name}" se přesune do historie.
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{detail.object}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, color: T.accent, fontWeight: 600 }}>{detail.revType}</span>
+                    {detailRt?.period && <span style={s.tag(T.textMuted)}>{detailRt.period}</span>}
+                  </div>
                 </div>
-              )}
-              <div style={{ marginBottom: 10 }}>
-                <input
-                  value={uploadName}
-                  onChange={e => setUploadName(e.target.value)}
-                  placeholder={`např. Revize ${detail.revType} ${new Date().getFullYear()}.pdf`}
-                  style={s.input}
-                  autoFocus
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button onClick={() => fileRef.current?.click()} style={{
-                  ...s.btn(false), display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
-                  border: `1px dashed ${T.border}`,
-                }}>
-                  {ICONS.folder} Soubor
-                </button>
-                <input ref={fileRef} type="file" style={{ display: 'none' }}
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file && !uploadName) setUploadName(file.name);
-                  }}
-                />
-                <div style={{ flex: 1 }} />
-                <button onClick={() => { setShowUpload(false); setUploadName(''); }} style={{ ...s.btn(false), fontSize: 12 }}>Zrušit</button>
-                <button onClick={handleUploadDoc} style={{
-                  ...s.btn(true), fontSize: 12, opacity: uploadName.trim() ? 1 : 0.5,
-                }}>Nahrát</button>
+                <button onClick={closeDetail} style={{
+                  background: T.card, border: `1px solid ${T.border}`, color: T.textDim,
+                  fontSize: 16, cursor: 'pointer', padding: '6px 10px', borderRadius: 8,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{'\u2715'}</button>
               </div>
             </div>
-          )}
 
-          {/* History */}
-          {historyDocs.length > 0 && (
-            <div>
-              <button onClick={() => setShowHistory(!showHistory)} style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-                fontSize: 12, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.5px',
-                marginBottom: showHistory ? 10 : 0,
-              }}>
-                <span style={{ transition: 'transform .2s', transform: showHistory ? 'rotate(90deg)' : 'rotate(0)', display: 'inline-block' }}>&#9654;</span>
-                Historie ({historyDocs.length})
-              </button>
-              {showHistory && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {historyDocs.map(doc => (
-                    <div key={doc.id} style={{
-                      background: T.bg, borderRadius: 8, padding: '8px 12px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                      border: `1px solid ${T.border}`,
+            {/* Scrollable body */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+
+              {/* Last revision date (derived from docs) */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 8 }}>
+                  Datum poslední revize
+                </label>
+                <div style={{
+                  ...s.input, background: T.card, cursor: 'default',
+                  color: lastRevisionDate ? T.text : T.textMuted,
+                }}>
+                  {lastRevisionDate ? fmtDate(lastRevisionDate) : 'Žádný dokument — datum neznámé'}
+                </div>
+              </div>
+
+              {/* Next revision date (editable) */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 8 }}>
+                  Datum příští revize
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <input
+                    type="date"
+                    value={panelDeadline}
+                    onChange={e => setPanelDeadline(e.target.value)}
+                    style={{ ...s.input, width: 'auto', minWidth: 180, colorScheme: 'dark' }}
+                  />
+                  {panelDeadline && (
+                    <span style={{ ...s.tag(getRevColor(panelDeadline)), fontSize: 12, padding: '4px 10px' }}>
+                      {getRevLabel(panelDeadline)}
+                    </span>
+                  )}
+                  {panelDeadline && (
+                    <button onClick={() => setPanelDeadline('')} style={{
+                      background: 'none', border: 'none', color: T.red, cursor: 'pointer',
+                      fontSize: 12, display: 'flex', alignItems: 'center', gap: 3, padding: '4px 6px',
                     }}>
+                      {ICONS.trash}
+                    </button>
+                  )}
+                </div>
+                {!panelDeadline && (
+                  <div style={{ fontSize: 12, color: T.textMuted, fontStyle: 'italic', marginTop: 6 }}>Nenastaveno</div>
+                )}
+              </div>
+
+              {/* Company */}
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 8 }}>
+                  Firma
+                </label>
+                <input
+                  value={panelCompany}
+                  onChange={e => setPanelCompany(e.target.value)}
+                  placeholder="např. Enetep, p.Šavel..."
+                  style={s.input}
+                />
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: T.border, marginBottom: 20 }} />
+
+              {/* Current document */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 10 }}>
+                  Dokument
+                </label>
+
+                {currentDoc ? (
+                  <div style={{
+                    background: T.accent + '0d', border: `1px solid ${T.accent}22`, borderRadius: 10, padding: 14,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-                        <span style={{ color: T.textMuted, display: 'flex', flexShrink: 0 }}>{ICONS.doc}</span>
+                        <span style={{ color: T.accent, display: 'flex', flexShrink: 0 }}>{ICONS.doc}</span>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
-                          <div style={{ fontSize: 10, color: T.textMuted }}>{fmtDate(doc.date)} · {doc.size}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentDoc.name}</div>
+                          <div style={{ fontSize: 11, color: T.textMuted }}>{fmtDate(currentDoc.date)} · {currentDoc.size}</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                         <button style={{
                           background: T.accent + '22', color: T.accent, border: 'none',
-                          borderRadius: 5, padding: '4px 6px', cursor: 'pointer', display: 'flex',
+                          borderRadius: 6, padding: '5px 8px', cursor: 'pointer', display: 'flex',
                         }} title="Zobrazit">{ICONS.eye}</button>
                         <button style={{
                           background: T.green + '22', color: T.green, border: 'none',
-                          borderRadius: 5, padding: '4px 6px', cursor: 'pointer', display: 'flex',
+                          borderRadius: 6, padding: '5px 8px', cursor: 'pointer', display: 'flex',
                         }} title="Stáhnout">{ICONS.download}</button>
-                        <button onClick={() => handleDeleteDoc(doc.id)} style={{
-                          background: T.red + '15', color: T.red, border: 'none',
-                          borderRadius: 5, padding: '4px 6px', cursor: 'pointer', display: 'flex',
+                        <button onClick={() => handleDeleteDoc(currentDoc.id)} style={{
+                          background: T.red + '22', color: T.red, border: 'none',
+                          borderRadius: 6, padding: '5px 8px', cursor: 'pointer', display: 'flex',
                         }} title="Smazat">{ICONS.trash}</button>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                ) : (
+                  <div style={{ color: T.textMuted, fontSize: 13, fontStyle: 'italic', marginBottom: 4 }}>
+                    Žádný dokument
+                  </div>
+                )}
+              </div>
+
+              {/* Upload new doc */}
+              {!showUpload ? (
+                <button onClick={() => setShowUpload(true)} style={{
+                  ...s.btn(false), display: 'flex', alignItems: 'center', gap: 6,
+                  border: `1px dashed ${T.accent}44`, color: T.accent, width: '100%', justifyContent: 'center',
+                  padding: '10px 16px', marginBottom: 16,
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = T.accent + '11'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  {ICONS.upload} {currentDoc ? 'Nahrát nový (stávající → historie)' : 'Nahrát dokument'}
+                </button>
+              ) : (
+                <div style={{
+                  background: T.bg, borderRadius: 10, padding: 14, marginBottom: 16,
+                  border: `1px solid ${T.accent}33`,
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Nahrát nový dokument</div>
+                  {currentDoc && (
+                    <div style={{
+                      fontSize: 11, color: T.orange, marginBottom: 8, padding: '6px 8px',
+                      background: T.orange + '11', borderRadius: 6,
+                    }}>
+                      Stávající „{currentDoc.name}" se přesune do historie.
+                    </div>
+                  )}
+                  <div style={{ marginBottom: 10 }}>
+                    <input
+                      value={uploadName}
+                      onChange={e => setUploadName(e.target.value)}
+                      placeholder={`např. Revize ${detail.revType} ${new Date().getFullYear()}.pdf`}
+                      style={s.input}
+                      autoFocus
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button onClick={() => fileRef.current?.click()} style={{
+                      ...s.btn(false), display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                      border: `1px dashed ${T.border}`,
+                    }}>
+                      {ICONS.folder} Soubor
+                    </button>
+                    <input ref={fileRef} type="file" style={{ display: 'none' }}
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file && !uploadName) setUploadName(file.name);
+                      }}
+                    />
+                    <div style={{ flex: 1 }} />
+                    <button onClick={() => { setShowUpload(false); setUploadName(''); }} style={{ ...s.btn(false), fontSize: 12 }}>Zrušit</button>
+                    <button onClick={handleUploadDoc} style={{
+                      ...s.btn(true), fontSize: 12, opacity: uploadName.trim() ? 1 : 0.5,
+                    }}>Nahrát</button>
+                  </div>
+                </div>
+              )}
+
+              {/* History */}
+              {historyDocs.length > 0 && (
+                <div>
+                  <button onClick={() => setShowHistory(!showHistory)} style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                    display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                    fontSize: 12, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.5px',
+                    marginBottom: showHistory ? 10 : 0,
+                  }}>
+                    <span style={{ transition: 'transform .2s', transform: showHistory ? 'rotate(90deg)' : 'rotate(0)', display: 'inline-block' }}>&#9654;</span>
+                    Historie ({historyDocs.length})
+                  </button>
+                  {showHistory && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {historyDocs.map(doc => (
+                        <div key={doc.id} style={{
+                          background: T.bg, borderRadius: 8, padding: '8px 12px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                          border: `1px solid ${T.border}`,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                            <span style={{ color: T.textMuted, display: 'flex', flexShrink: 0 }}>{ICONS.doc}</span>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+                              <div style={{ fontSize: 10, color: T.textMuted }}>{fmtDate(doc.date)} · {doc.size}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                            <button style={{
+                              background: T.accent + '22', color: T.accent, border: 'none',
+                              borderRadius: 5, padding: '4px 6px', cursor: 'pointer', display: 'flex',
+                            }} title="Zobrazit">{ICONS.eye}</button>
+                            <button style={{
+                              background: T.green + '22', color: T.green, border: 'none',
+                              borderRadius: 5, padding: '4px 6px', cursor: 'pointer', display: 'flex',
+                            }} title="Stáhnout">{ICONS.download}</button>
+                            <button onClick={() => handleDeleteDoc(doc.id)} style={{
+                              background: T.red + '15', color: T.red, border: 'none',
+                              borderRadius: 5, padding: '4px 6px', cursor: 'pointer', display: 'flex',
+                            }} title="Smazat">{ICONS.trash}</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-        </div>
+
+            {/* Footer — Save + Close */}
+            <div style={{
+              padding: '16px 24px', borderTop: `1px solid ${T.border}`,
+              display: 'flex', gap: 10, justifyContent: 'flex-end',
+            }}>
+              <button onClick={closeDetail} style={{ ...s.btn(false), padding: '10px 20px' }}>Zavřít</button>
+              <button onClick={handleSave} style={{ ...s.btn(true), padding: '10px 24px' }}>Uložit</button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 
   return (
     <div className="fade-in">
-      {DetailModal}
+      {SlidingPanel}
 
       <SectionTitle>Povinnosti a revize</SectionTitle>
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
@@ -340,10 +392,13 @@ export default function ObligationsPage({ matrix, onUpdateCell }) {
                 <tr>
                   <th style={{ ...s.th, position: 'sticky', left: 0, background: T.card, zIndex: 2, minWidth: 190 }}>Objekt</th>
                   {REV_TYPES.map((rt, i) => (
-                    <th key={i} style={{ ...s.th, textAlign: 'center', minWidth: 110, lineHeight: '1.3' }}>
-                      <div>{rt.name}</div>
-                      {rt.period && <div style={{ fontWeight: 400, fontSize: 10, opacity: 0.7 }}>{rt.period}</div>}
-                      {rt.supplier && <div style={{ fontWeight: 400, fontSize: 10, color: T.cyan }}>{rt.supplier}</div>}
+                    <th key={i} style={{
+                      ...s.th, textAlign: 'center', minWidth: 120, padding: '12px 8px',
+                      verticalAlign: 'bottom',
+                    }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 4 }}>{rt.name}</div>
+                      {rt.period && <div style={{ fontWeight: 500, fontSize: 10, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.3px' }}>{rt.period}</div>}
+                      {rt.supplier && <div style={{ fontWeight: 500, fontSize: 10, color: T.cyan, marginTop: 2 }}>{rt.supplier}</div>}
                     </th>
                   ))}
                 </tr>
@@ -362,9 +417,10 @@ export default function ObligationsPage({ matrix, onUpdateCell }) {
                           <div
                             onClick={() => openDetail(obj, rt.name)}
                             style={{
-                              borderRadius: 8, padding: '5px 4px 4px', lineHeight: '1.3', cursor: 'pointer',
-                              transition: 'all .15s', minHeight: 38,
+                              borderRadius: 10, padding: '8px 6px', lineHeight: '1.3', cursor: 'pointer',
+                              transition: 'all .15s', minHeight: 54,
                               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                              position: 'relative',
                               ...(d ? {
                                 background: color + '12',
                                 border: `1px solid ${color}20`,
@@ -384,15 +440,16 @@ export default function ObligationsPage({ matrix, onUpdateCell }) {
                           >
                             {d ? (
                               <>
-                                <div style={{ color, fontSize: 10, fontWeight: 600 }}>{fmtDate(d)}</div>
-                                <div style={{ fontSize: 9, color, opacity: 0.75, marginBottom: hasDoc ? 2 : 0 }}>{getRevLabel(d)}</div>
+                                <div style={{ color, fontSize: 13, fontWeight: 700 }}>{fmtDate(d)}</div>
+                                <div style={{ fontSize: 10, color, opacity: 0.8, marginTop: 1 }}>{getRevLabel(d)}</div>
                                 {hasDoc && (
                                   <div style={{
-                                    display: 'flex', alignItems: 'center', gap: 2,
-                                    color: T.accent, fontSize: 9, fontWeight: 600, marginTop: 1,
+                                    position: 'absolute', top: 3, right: 4,
+                                    color: T.accent, display: 'flex', opacity: 0.7,
                                   }}>
-                                    <span style={{ display: 'flex' }}>{ICONS.doc}</span>
-                                    {cell.docs.length > 1 && <span>{cell.docs.length}×</span>}
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                                    </svg>
                                   </div>
                                 )}
                               </>
@@ -418,7 +475,10 @@ export default function ObligationsPage({ matrix, onUpdateCell }) {
             </div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: T.textDim }}>
-                <span style={{ color: T.accent, display: 'flex' }}>{ICONS.doc}</span> Má dokument
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                Má dokument
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: T.textDim }}>
                 <span style={{ color: T.textMuted, fontSize: 14 }}>+</span> Klikni pro nastavení
@@ -450,7 +510,7 @@ export default function ObligationsPage({ matrix, onUpdateCell }) {
                       <td style={s.td}><div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} /></td>
                       <td style={{ ...s.td, fontWeight: 600 }}>{it.object}</td>
                       <td style={s.td}>{it.type}</td>
-                      <td style={{ ...s.td, color: T.cyan }}>{it.supplier || '—'}</td>
+                      <td style={{ ...s.td, color: T.cyan }}>{it.company || it.supplier || '—'}</td>
                       <td style={{ ...s.td, color: T.textDim }}>{it.period || '—'}</td>
                       <td style={s.td}>{fmtDate(it.date)}</td>
                       <td style={{ ...s.td, color, fontWeight: 600 }}>{getRevLabel(it.date)}</td>
@@ -501,7 +561,7 @@ export default function ObligationsPage({ matrix, onUpdateCell }) {
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{it.object}</div>
                           <div style={{ color: T.textDim, fontSize: 12 }}>
-                            {it.type} {it.supplier ? `(${it.supplier})` : ''}
+                            {it.type} {it.company || it.supplier ? `(${it.company || it.supplier})` : ''}
                             {hasDoc && <span style={{ color: T.accent, marginLeft: 8 }}>{ICONS.doc} {it.docs.length} dok.</span>}
                           </div>
                         </div>

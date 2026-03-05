@@ -206,7 +206,7 @@ function genInitialMatrix() {
         cellDocs.push({ id: 'rd' + (docId++), name, date, size });
       });
 
-      m[obj][rt.name] = { deadline, docs: cellDocs };
+      m[obj][rt.name] = { deadline, docs: cellDocs, company: rt.supplier || '' };
     });
   });
   return m;

@@ -5,11 +5,11 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import { T, s, tooltipStyle } from '../theme';
-import { fmtCZK, fmtDate } from '../helpers';
-import { FINANCE_MONTHLY, INITIAL_MATRIX } from '../data/mockData';
+import { fmtCZK, fmtDate, getRevColor, getRevLabel } from '../helpers';
+import { FINANCE_MONTHLY } from '../data/mockData';
 import { StatCard, SectionTitle, SubTitle } from './shared';
 
-export default function Dashboard({ properties }) {
+export default function Dashboard({ properties, oblMatrix }) {
   const allUnits = properties.flatMap(p => p.units);
   const totalUnits = allUnits.length;
   const occupied = allUnits.filter(u => u.status === 'occupied').length;
@@ -18,13 +18,26 @@ export default function Dashboard({ properties }) {
 
   const urgentRevisions = useMemo(() => {
     let count = 0;
-    Object.values(INITIAL_MATRIX).forEach(obj => {
+    Object.values(oblMatrix).forEach(obj => {
       Object.values(obj).forEach(cell => {
         if (cell.deadline && new Date(cell.deadline) < new Date()) count++;
       });
     });
     return count;
-  }, []);
+  }, [oblMatrix]);
+
+  const upcomingRevisions = useMemo(() => {
+    const items = [];
+    Object.entries(oblMatrix).forEach(([obj, types]) => {
+      Object.entries(types).forEach(([type, cell]) => {
+        if (cell.deadline) {
+          const diff = Math.floor((new Date(cell.deadline) - new Date()) / 864e5);
+          if (diff <= 90) items.push({ object: obj, type, date: cell.deadline, diff });
+        }
+      });
+    });
+    return items.sort((a, b) => a.diff - b.diff).slice(0, 5);
+  }, [oblMatrix]);
 
   const debtors = useMemo(() => {
     const list = [];
@@ -138,6 +151,33 @@ export default function Dashboard({ properties }) {
           </div>
         </div>
       </div>
+
+      {upcomingRevisions.length > 0 && (
+        <div style={s.card}>
+          <SubTitle>Blížící se revize</SubTitle>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={s.table}>
+              <thead><tr>
+                <th style={s.th}>Stav</th><th style={s.th}>Objekt</th><th style={s.th}>Typ revize</th><th style={s.th}>Datum</th><th style={s.th}>Zbývá</th>
+              </tr></thead>
+              <tbody>
+                {upcomingRevisions.map((r, i) => {
+                  const color = getRevColor(r.date);
+                  return (
+                    <tr key={i}>
+                      <td style={s.td}><div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} /></td>
+                      <td style={{ ...s.td, fontWeight: 600 }}>{r.object}</td>
+                      <td style={s.td}>{r.type}</td>
+                      <td style={s.td}>{fmtDate(r.date)}</td>
+                      <td style={{ ...s.td, color, fontWeight: 600 }}>{getRevLabel(r.date)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

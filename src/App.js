@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { T, CSS } from './theme';
 import ICONS from './icons';
 import {
@@ -78,9 +78,22 @@ export default function App() {
     setProfilePropertyId(null);
   }, []);
 
+  const oblAlertCount = useMemo(() => {
+    let count = 0;
+    Object.values(oblMatrix).forEach(obj => {
+      Object.values(obj).forEach(cell => {
+        if (cell.deadline) {
+          const diff = Math.floor((new Date(cell.deadline) - new Date()) / 864e5);
+          if (diff <= 30) count++;
+        }
+      });
+    });
+    return count;
+  }, [oblMatrix]);
+
   const renderPage = () => {
     switch (page) {
-      case 'dashboard': return <Dashboard properties={properties} />;
+      case 'dashboard': return <Dashboard properties={properties} oblMatrix={oblMatrix} />;
       case 'properties': return <PropertiesPage properties={properties} onOpenProfile={openPropertyProfile} onAddProperty={handleAddProperty} />;
       case 'tenants': return <TenantsPage properties={properties} />;
       case 'finance': return <FinancePage properties={properties} />;
@@ -184,12 +197,20 @@ export default function App() {
                       {ICONS[item.icon]}
                     </span>
                     {item.label}
-                    {active && (
+                    {item.id === 'obligations' && oblAlertCount > 0 ? (
+                      <span style={{
+                        marginLeft: 'auto', background: T.red, color: '#fff',
+                        fontSize: 10, fontWeight: 700, borderRadius: 10,
+                        padding: '2px 6px', minWidth: 18, textAlign: 'center', lineHeight: '1.4',
+                      }}>
+                        {oblAlertCount}
+                      </span>
+                    ) : active ? (
                       <div style={{
                         marginLeft: 'auto', width: 7, height: 7,
                         borderRadius: '50%', background: T.accent,
                       }} />
-                    )}
+                    ) : null}
                   </button>
                 );
               })}
