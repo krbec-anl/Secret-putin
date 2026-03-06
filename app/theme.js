@@ -109,19 +109,27 @@ function makeStyles(T, isDark) {
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
-  const [isDark, setIsDark] = useState(() => {
-    try { return localStorage.getItem('spravujto-theme') !== 'light'; } catch { return true; }
-  });
+  const [isDark, setIsDark] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('spravujto-theme');
+      if (saved === 'light') setIsDark(false);
+    } catch {}
+    setMounted(true);
+  }, []);
 
   const value = useMemo(() => {
     const T = isDark ? DARK : LIGHT;
     const s = makeStyles(T, isDark);
-    return { T, s, isDark, toggleTheme: () => setIsDark(d => !d) };
-  }, [isDark]);
+    return { T, s, isDark, mounted, toggleTheme: () => setIsDark(d => !d) };
+  }, [isDark, mounted]);
 
   useEffect(() => {
+    if (!mounted) return;
     try { localStorage.setItem('spravujto-theme', isDark ? 'dark' : 'light'); } catch {}
-  }, [isDark]);
+  }, [isDark, mounted]);
 
   useEffect(() => {
     let style = document.getElementById('app-theme-css');

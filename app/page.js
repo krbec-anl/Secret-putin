@@ -7,7 +7,7 @@ import {
   INITIAL_PROPERTIES, INITIAL_MATRIX, INITIAL_DOCUMENTS,
   NAV_SECTIONS, NAV_FLAT, REV_TYPES as INITIAL_REV_TYPES, OBL_OBJECTS,
 } from './data/mockData';
-const APP_VERSION = '0.5.0';
+const APP_VERSION = '0.5.1';
 
 import Dashboard from './components/Dashboard';
 import PropertiesPage from './components/PropertiesPage';
@@ -40,7 +40,7 @@ const MoonIcon = (
 // ============================================================
 
 function AppInner() {
-  const { T, s, isDark, toggleTheme } = useTheme();
+  const { T, s, isDark, mounted, toggleTheme } = useTheme();
 
   const [page, setPage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -316,7 +316,7 @@ function AppInner() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 500 }}>v{APP_VERSION}</span>
             <span style={{ fontSize: 13, color: T.textDim }}>
-              {new Date().toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {mounted ? new Date().toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '\u00A0'}
             </span>
             {/* Theme toggle */}
             <button
