@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import { createGame, drawPolicies, getPresident, getMinister, getAlivePlayers, getPlayerById, canBeNominatedAsMinister, advancePresident, enactPolicy, checkWinCondition, getExecutiveAction, getPublicGameState, getEndGameReveal, POLICY, PHASE } from './game.js';
-import { PHASE as P } from './constants.js';
+import { createGame, drawPolicies, getPresident, getMinister, getAlivePlayers, getPlayerById, canBeNominatedAsMinister, advancePresident, enactPolicy, checkWinCondition, getExecutiveAction } from './game.js';
+import { PHASE as P, POLICY } from './constants.js';
 
 const rooms = new Map();
 
@@ -634,4 +634,4 @@ export function handleDisconnect(socketId) {
   return null;
 }
 
-export { getPublicGameState, getEndGameReveal };
+export { getPublicGameState, getEndGameReveal } from './game.js';
