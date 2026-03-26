@@ -4,8 +4,8 @@
 
 ## Tech stack
 
-- **Frontend**: React (Vite)
-- **Backend**: Node.js + Express + Socket.io
+- **Frontend**: React (Vite), deployment na Vercel
+- **Backend**: Node.js + Express + Socket.io, deployment na Railway
 - **Komunikace**: WebSocket přes Socket.io
 - **Databáze**: Žádná – vše v paměti serveru
 
@@ -39,40 +39,59 @@ VITE_SERVER_URL=http://localhost:3001
 1. Vytvořte nový projekt na [Railway](https://railway.app)
 2. Připojte GitHub repo, nastavte root directory na `server`
 3. Railway automaticky detekuje Node.js a spustí `npm start`
-4. Nastavte PORT environment proměnnou (Railway ji obvykle nastaví automaticky)
 
 ### Frontend (Vercel)
 1. Vytvořte nový projekt na [Vercel](https://vercel.com)
 2. Připojte GitHub repo, nastavte root directory na `client`
 3. Framework preset: Vite
 4. Nastavte environment proměnnou:
-   - `VITE_SERVER_URL` = URL vašeho Railway serveru (např. `https://tajny-putin-server.up.railway.app`)
+   - `VITE_SERVER_URL` = URL vašeho Railway serveru
 
 ## Pravidla hry
 
 ### Frakce
-- **Prozápadní frakce** (liberálové) – obránci demokracie
-- **Proruská frakce** (kolaboranti) – loutky Kremlu
+- **Prozápadní frakce** – obránci demokracie
+- **Proruská frakce** – loutky Kremlu
 - **Putin** – tajný vůdce proruské frakce
 
+### Počty hráčů
+| Hráčů | Prozápadní | Proruští | Putin |
+|-------|-----------|----------|-------|
+| 6     | 4         | 1        | 1     |
+| 7     | 4         | 2        | 1     |
+| 8–9   | 5         | 2        | 1     |
+| 10–11 | 6         | 3        | 1     |
+| 12    | 7         | 4        | 1     |
+
 ### Výherní podmínky
-- **Prozápadní vyhraje**: 5 prozápadních zákonů NEBO poprava Putina
-- **Proruská vyhraje**: 6 proruských zákonů NEBO Putin zvolen ministrem po 3+ proruských zákonech
+- **Prozápadní vyhrají**: 5 prozápadních zákonů NEBO poprava Putina
+- **Proruští vyhrají**: 6 proruských zákonů NEBO Putin zvolen ministrem po 3+ proruských zákonech
 
 ### Postavy
-Každý hráč má veřejnou postavu s unikátní schopností (jednorázová):
+Každý hráč má veřejnou postavu s unikátní jednorázovou schopností:
 
 | Postava | Schopnost |
 |---------|-----------|
-| 💼 Alena Schillerová | Vidí zahozený zákon premiéra |
-| 🚂 Karel Havlíček | Vrátí zahozený zákon do balíčku |
-| 🔥 Filip Turek | Zablokuje hlasování |
-| 🏛️ Tomáš Macinka | Nahlédne na 2 vrchní karty |
-| 👴 Václav Klaus | Vynutí opakování hlasování |
-| 🤝 Petr Fiala | Nominuje 2 kandidáty |
-| ⭐ Generál Pavel | Zablokuje popravu |
-| 😤 Tomio Okamura | Nominuje sám sebe |
-| 💻 Ivan Bartoš | Dvojitý hlas (pak jedno kolo nemůže) |
-| 📊 Danuše Nerudová | Vidí zahozené karty z posledního kola |
-| ✈️ Jan Lipavský | Sníží failcounter o 1 |
-| 🚔 Vít Rakušan | Vidí historii hlasování hráče |
+| Alena Schillerová | Vidí zahozený zákon premiéra |
+| Karel Havlíček | Vrátí zahozený zákon do balíčku |
+| Filip Turek | Zablokuje hlasování (+1 failcounter) |
+| Tomáš Macinka | Nahlédne na 2 vrchní karty |
+| Václav Klaus | Vynutí opakování hlasování |
+| Petr Fiala | Nominuje 2 kandidáty, hráči volí |
+| Generál Pavel | Zablokuje popravu |
+| Tomio Okamura | Nominuje sám sebe jako ministra |
+| Ivan Bartoš | Dvojitý hlas, pak jedno kolo nemůže hlasovat |
+| Danuše Nerudová | Vidí zahozené karty z posledního kola |
+| Jan Lipavský | Sníží failcounter o 1 |
+| Vít Rakušan | Vidí historii hlasování jednoho hráče |
+
+### Průběh kola
+1. **Nominace ministra** – Premiér navrhne kandidáta
+2. **Hlasování** – Všichni hlasují veřejně Ano/Ne
+3. **Legislativa** – Premiér zahodí 1 ze 3 zákonů, ministr zahodí 1 ze 2, zbývající se přijme
+4. **Speciální akce** – Po proruských zákonech: prošetření, zvláštní volby, poprava
+5. **Rotace** – Premiér se posouvá doleva
+
+### Balíček zákonů
+- 6× Prozápadní zákon
+- 11× Proruský zákon

@@ -1,152 +1,182 @@
-import { useState, useEffect } from 'react';
-import { useSocket } from './hooks/useSocket';
-import Lobby from './pages/Lobby';
-import RoleReveal from './pages/RoleReveal';
-import Game from './pages/Game';
-import GameOver from './pages/GameOver';
+import { useState, useEffect, useCallback } from 'react';
+import socket from './socket.js';
+import Lobby from './components/Lobby.jsx';
+import RoleReveal from './components/RoleReveal.jsx';
+import GameBoard from './components/GameBoard.jsx';
+import GameOver from './components/GameOver.jsx';
 
-export default function App() {
-  const { connected, gameState, privateState, roleData, voteResult, error, setError, emit, getSocketId } = useSocket();
-  const [playerName, setPlayerName] = useState(() => localStorage.getItem('tp_name') || '');
+function App() {
+  const [screen, setScreen] = useState('join'); // join, lobby, role_reveal, game, game_over
+  const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-  const [inRoom, setInRoom] = useState(false);
+  const [playerId, setPlayerId] = useState(null);
+  const [roomData, setRoomData] = useState(null);
+  const [roleData, setRoleData] = useState(null);
+  const [gameState, setGameState] = useState(null);
+  const [error, setError] = useState('');
+  const [connected, setConnected] = useState(false);
   const [abilityResult, setAbilityResult] = useState(null);
 
   useEffect(() => {
-    if (playerName) localStorage.setItem('tp_name', playerName);
+    socket.connect();
+
+    socket.on('connect', () => setConnected(true));
+    socket.on('disconnect', () => setConnected(false));
+
+    socket.on('room_update', (data) => {
+      setRoomData(data);
+      if (!data.gameStarted) setScreen('lobby');
+    });
+
+    socket.on('role_assigned', (data) => {
+      setRoleData(data);
+      setScreen('role_reveal');
+    });
+
+    socket.on('game_state', (data) => {
+      setGameState(data);
+      if (data.phase === 'game_over') {
+        setScreen('game_over');
+      } else if (screen === 'role_reveal') {
+        // Don't switch until player confirms
+      } else if (screen !== 'game_over') {
+        setScreen('game');
+      }
+    });
+
+    socket.on('error', (data) => {
+      setError(data.message || 'Nastala chyba');
+    });
+
+    return () => {
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('room_update');
+      socket.off('role_assigned');
+      socket.off('game_state');
+      socket.off('error');
+    };
+  }, [screen]);
+
+  const createRoom = useCallback(() => {
+    if (!playerName.trim()) { setError('Zadej jméno'); return; }
+    socket.emit('create_room', { playerName: playerName.trim() }, (res) => {
+      if (res.error) { setError(res.error); return; }
+      setPlayerId(res.playerId);
+      setRoomCode(res.roomCode);
+      setError('');
+    });
   }, [playerName]);
 
-  const createRoom = async () => {
-    if (!playerName.trim()) return setError('Zadej jméno.');
-    const res = await emit('create_room', { playerName: playerName.trim() });
-    if (res?.success) {
+  const joinRoom = useCallback(() => {
+    if (!playerName.trim()) { setError('Zadej jméno'); return; }
+    if (!roomCode.trim()) { setError('Zadej kód místnosti'); return; }
+    socket.emit('join_room', { roomCode: roomCode.trim().toUpperCase(), playerName: playerName.trim() }, (res) => {
+      if (res.error) { setError(res.error); return; }
+      setPlayerId(res.playerId);
       setRoomCode(res.roomCode);
-      setInRoom(true);
-    } else {
-      setError(res?.error || 'Chyba.');
-    }
-  };
+      setError('');
+    });
+  }, [playerName, roomCode]);
 
-  const joinRoom = async () => {
-    if (!playerName.trim()) return setError('Zadej jméno.');
-    if (!roomCode.trim()) return setError('Zadej kód místnosti.');
-    const res = await emit('join_room', { roomCode: roomCode.trim(), playerName: playerName.trim() });
-    if (res?.success) {
-      setRoomCode(res.roomCode);
-      setInRoom(true);
-    } else {
-      setError(res?.error || 'Chyba.');
-    }
-  };
+  const startGame = useCallback(() => {
+    socket.emit('start_game', {}, (res) => {
+      if (res.error) setError(res.error);
+    });
+  }, []);
 
-  const phase = gameState?.phase;
-  const socketId = getSocketId();
+  const confirmRole = useCallback(() => {
+    socket.emit('role_revealed');
+    setScreen('game');
+  }, []);
 
-  // Not connected yet
-  if (!connected) {
+  if (screen === 'join') {
     return (
-      <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div className="pulse" style={{ fontSize: 48, marginBottom: 16 }}>🔌</div>
-          <p style={{ color: 'var(--text-secondary)' }}>Připojování k serveru...</p>
+      <div className="screen join-screen">
+        <div className="logo-container">
+          <h1 className="logo">TAJNÝ PUTIN</h1>
+          <p className="subtitle">Česká satirická politická hra</p>
         </div>
+
+        <div className="form-card">
+          <input
+            type="text"
+            placeholder="Tvoje jméno"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            maxLength={20}
+            className="input"
+          />
+          <input
+            type="text"
+            placeholder="Kód místnosti"
+            value={roomCode}
+            onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+            maxLength={5}
+            className="input"
+          />
+          <button className="btn btn-primary" onClick={joinRoom}>
+            Připojit se
+          </button>
+          <div className="divider">nebo</div>
+          <button className="btn btn-secondary" onClick={createRoom}>
+            Vytvořit místnost
+          </button>
+          {error && <div className="error">{error}</div>}
+        </div>
+
+        {!connected && <div className="connection-warning">Připojování k serveru...</div>}
       </div>
     );
   }
 
-  // Not in room yet
-  if (!inRoom || !gameState) {
+  if (screen === 'lobby') {
     return (
-      <div className="container fade-in" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100dvh', gap: 24 }}>
-        <div style={{ textAlign: 'center', marginBottom: 16 }}>
-          <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 4 }}>
-            <span style={{ color: 'var(--red)' }}>TAJNÝ</span>{' '}
-            <span style={{ color: 'var(--text-primary)' }}>PUTIN</span>
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Česká satirická politická hra</p>
-        </div>
-
-        <input
-          className="input"
-          placeholder="Tvoje jméno"
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-          maxLength={20}
-        />
-
-        <button className="btn btn-red" onClick={createRoom}>
-          Vytvořit místnost
-        </button>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>NEBO</span>
-          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-        </div>
-
-        <input
-          className="input"
-          placeholder="Kód místnosti"
-          value={roomCode}
-          onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-          maxLength={5}
-          style={{ textAlign: 'center', letterSpacing: 4, fontWeight: 700, fontSize: 20 }}
-        />
-
-        <button className="btn btn-blue" onClick={joinRoom}>
-          Připojit se
-        </button>
-
-        {error && (
-          <div className="fade-in" style={{ textAlign: 'center', color: 'var(--danger)', fontSize: 14 }}>
-            {error}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Game over
-  if (phase === 'game_over') {
-    return <GameOver gameState={gameState} privateState={privateState} socketId={socketId} />;
-  }
-
-  // Role reveal
-  if (phase === 'role_reveal') {
-    return (
-      <RoleReveal
-        roleData={roleData}
-        privateState={privateState}
-        gameState={gameState}
-        socketId={socketId}
-        onReady={() => emit('player_ready')}
+      <Lobby
+        roomData={roomData}
+        playerId={playerId}
+        onStart={startGame}
+        error={error}
       />
     );
   }
 
-  // In-game
-  if (phase !== 'lobby') {
+  if (screen === 'role_reveal') {
     return (
-      <Game
+      <RoleReveal
+        roleData={roleData}
+        onConfirm={confirmRole}
+      />
+    );
+  }
+
+  if (screen === 'game_over' && gameState) {
+    return (
+      <GameOver
         gameState={gameState}
-        privateState={privateState}
-        socketId={socketId}
-        voteResult={voteResult}
-        emit={emit}
-        error={error}
+        playerId={playerId}
+      />
+    );
+  }
+
+  if (screen === 'game' && gameState) {
+    return (
+      <GameBoard
+        gameState={gameState}
+        playerId={playerId}
+        socket={socket}
         abilityResult={abilityResult}
         setAbilityResult={setAbilityResult}
       />
     );
   }
 
-  // Lobby
   return (
-    <Lobby
-      gameState={gameState}
-      socketId={socketId}
-      onStart={() => emit('start_game')}
-      error={error}
-    />
+    <div className="screen loading-screen">
+      <div className="spinner"></div>
+      <p>Načítání...</p>
+    </div>
   );
 }
+
+export default App;

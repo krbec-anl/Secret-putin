@@ -1,15 +1,15 @@
 {
   "name": "tajny-putin-server",
   "version": "1.0.0",
-  "description": "Server for Tajný Putin - Czech satirical political game",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.7.2",
-    "cors": "^2.8.5"
+    "socket.io": "^4.7.4",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.0"
   }
 }
