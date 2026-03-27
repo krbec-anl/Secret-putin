@@ -4,6 +4,7 @@ import Lobby from './components/Lobby.jsx';
 import RoleReveal from './components/RoleReveal.jsx';
 import GameBoard from './components/GameBoard.jsx';
 import GameOver from './components/GameOver.jsx';
+import RoleWidget from './components/RoleWidget.jsx';
 
 function App() {
   const [screen, setScreen] = useState('join'); // join, lobby, role_reveal, game, game_over
@@ -90,12 +91,17 @@ function App() {
     setScreen('game');
   }, []);
 
+  // Show role widget during game and game_over screens
+  const showWidget = (screen === 'game' || screen === 'game_over') && gameState;
+
   if (screen === 'join') {
     return (
       <div className="screen join-screen">
         <div className="logo-container">
+          <div className="logo-icon">☭</div>
           <h1 className="logo">TAJNÝ PUTIN</h1>
           <p className="subtitle">Česká satirická politická hra</p>
+          <p className="subtitle-small">6–12 hráčů na mobilech</p>
         </div>
 
         <div className="form-card">
@@ -115,7 +121,7 @@ function App() {
             maxLength={5}
             className="input"
           />
-          <button className="btn btn-primary" onClick={joinRoom}>
+          <button className="btn btn-primary btn-glow" onClick={joinRoom}>
             Připojit se
           </button>
           <div className="divider">nebo</div>
@@ -152,22 +158,32 @@ function App() {
 
   if (screen === 'game_over' && gameState) {
     return (
-      <GameOver
-        gameState={gameState}
-        playerId={playerId}
-      />
+      <>
+        <GameOver
+          gameState={gameState}
+          playerId={playerId}
+        />
+        {showWidget && (
+          <RoleWidget gameState={gameState} playerName={playerName} />
+        )}
+      </>
     );
   }
 
   if (screen === 'game' && gameState) {
     return (
-      <GameBoard
-        gameState={gameState}
-        playerId={playerId}
-        socket={socket}
-        abilityResult={abilityResult}
-        setAbilityResult={setAbilityResult}
-      />
+      <>
+        <GameBoard
+          gameState={gameState}
+          playerId={playerId}
+          socket={socket}
+          abilityResult={abilityResult}
+          setAbilityResult={setAbilityResult}
+        />
+        {showWidget && (
+          <RoleWidget gameState={gameState} playerName={playerName} />
+        )}
+      </>
     );
   }
 

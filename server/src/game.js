@@ -250,8 +250,8 @@ export function getPublicGameState(game, playerId) {
     state.myAbilityUsed = player.abilityUsed;
     state.myBartosSkipNextVote = player.bartosSkipNextVote;
 
-    // Pro-russian players see each other
-    if (player.faction === 'pro_russian') {
+    // Pro-russian players see each other, BUT Putin does NOT see his team
+    if (player.faction === 'pro_russian' && !player.isPutin) {
       state.proRussianTeam = game.players
         .filter(p => p.faction === 'pro_russian')
         .map(p => ({ id: p.id, name: p.name, isPutin: p.isPutin }));

@@ -988,3 +988,102 @@ html, body {
   background: var(--border);
   border-radius: 2px;
 }
+
+/* Role Widget - persistent badge */
+.role-widget {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  background: var(--bg-card);
+  border-top: 2px solid var(--border);
+}
+
+.role-widget.pro_west {
+  border-top-color: var(--blue);
+}
+
+.role-widget.pro_russian {
+  border-top-color: var(--red);
+}
+
+.role-widget.putin {
+  border-top-color: var(--gold);
+}
+
+.role-widget-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+}
+
+.role-widget-emoji {
+  font-size: 1.1rem;
+}
+
+.role-widget-name {
+  font-weight: 600;
+  flex: 1;
+  text-align: left;
+}
+
+.role-widget-arrow {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.role-widget-details {
+  padding: 0 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: fadeInUp 0.2s ease-out;
+}
+
+.role-widget-character {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.role-widget-faction {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.role-widget-faction.pro_west {
+  background: rgba(37, 99, 235, 0.2);
+  color: var(--blue-glow);
+}
+
+.role-widget-faction.pro_russian {
+  background: rgba(220, 38, 38, 0.2);
+  color: var(--red-glow);
+}
+
+.role-widget-faction.putin {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--gold);
+}
+
+.role-widget-ability {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.role-widget-team {
+  font-size: 0.75rem;
+  color: var(--red-glow);
+}

@@ -90,11 +90,13 @@ io.on('connection', (socket) => {
     for (const player of currentRoom.game.players) {
       const s = io.sockets.sockets.get(player.socketId);
       if (s) {
+        // Putin does NOT see other pro-russian players
+        const showTeam = player.faction === 'pro_russian' && !player.isPutin;
         s.emit('role_assigned', {
           character: player.character,
           faction: player.faction,
           isPutin: player.isPutin,
-          proRussianTeam: player.faction === 'pro_russian'
+          proRussianTeam: showTeam
             ? currentRoom.game.players
                 .filter(p => p.faction === 'pro_russian')
                 .map(p => ({ id: p.id, name: p.name, isPutin: p.isPutin }))
