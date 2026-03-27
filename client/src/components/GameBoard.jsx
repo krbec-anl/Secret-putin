@@ -90,7 +90,9 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
 
   const handleUseAbility = useCallback((targetId) => {
     emit('use_ability', { targetId }, (res) => {
-      if (res?.result) setAbilityResult(res.result);
+      if (res?.success) {
+        setAbilityResult(res.result || { abilityUsed: true });
+      }
     });
     setSelectedTarget(null);
   }, [emit, setAbilityResult]);
@@ -595,6 +597,22 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
         );
       }
 
+      case 'policy_enacted': {
+        const lastLaw = gs.enactedLawNames?.[gs.enactedLawNames.length - 1];
+        const isProRussian = lastLaw?.type === 'pro_russian';
+        return (
+          <div className={`phase-banner ${isProRussian ? 'phase-vote-failed' : 'phase-vote-passed'}`}>
+            <div className="phase-icon">{isProRussian ? '☭' : '🇪🇺'}</div>
+            <div className="phase-title">
+              {isProRussian ? 'Proruský zákon přijat!' : 'Prozápadní zákon přijat!'}
+            </div>
+            <div className="phase-description">
+              {lastLaw?.name || 'Zákon přijat automaticky po 3 neúspěšných vládách.'}
+            </div>
+          </div>
+        );
+      }
+
       default:
         return (
           <div className="phase-banner phase-waiting">
@@ -775,6 +793,9 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
           )}
           {abilityResult.executed && (
             <p>💀 Hráč {abilityResult.executed} byl popraven.</p>
+          )}
+          {abilityResult.abilityUsed && !abilityResult.topCards && !abilityResult.faction && !abilityResult.discardedPolicy && !abilityResult.discardedPolicies && !abilityResult.voteHistory && !abilityResult.blocked && !abilityResult.executed && (
+            <p>⚡ Schopnost byla úspěšně aktivována!</p>
           )}
           <button className="btn btn-primary btn-glow" style={{ marginTop: '16px' }} onClick={() => setAbilityResult(null)}>
             Rozumím

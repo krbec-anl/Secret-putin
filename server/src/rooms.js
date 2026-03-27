@@ -250,7 +250,22 @@ function applyVoteResult(game) {
         return { gameOver: winCheck };
       }
 
-      game.phase = P.POLICY_ENACTED;
+      // Check for executive action after auto-enacted pro-russian policy
+      if (game.proRussianPolicies > 0) {
+        const action = getExecutiveAction(game);
+        if (action) {
+          game.phase = P.EXECUTIVE_ACTION;
+          game.pendingAbility = { type: action, executedBy: getPresident(game).id };
+          return {};
+        }
+      }
+
+      // No executive action - proceed to next round
+      game.nominatedMinisterId = null;
+      game.ministerIndex = null;
+      advancePresident(game);
+      game.round++;
+      game.phase = P.NOMINATE_MINISTER;
       return {};
     }
 
