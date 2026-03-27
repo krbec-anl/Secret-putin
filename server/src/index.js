@@ -105,7 +105,9 @@ io.on('connection', (socket) => {
       }
     }
 
-    broadcastRoomState(currentRoom);
+    // Do NOT broadcastRoomState here - it would send game_state before
+    // players see role_assigned, causing them to skip role reveal.
+    // game_state will be sent after all players confirm via role_revealed.
   });
 
   socket.on('role_revealed', () => {
