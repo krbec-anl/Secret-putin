@@ -234,7 +234,9 @@ export function getPublicGameState(game, playerId) {
     log: game.log.slice(-20),
     round: game.round,
     enactedLawNames: game.enactedLawNames,
-    votes: game.phase === PHASE.VOTING || game.votes._revealed ? game.votes : {},
+    votes: (game.phase === PHASE.VOTING || game.phase === PHASE.FIALA_VOTE)
+      ? { _whoVoted: Object.keys(game.votes) }
+      : game.votes._revealed ? game.votes : {},
     deckCount: game.policyDeck.length,
     fialaCandidates: game.fialaCandidates,
     pendingAbility: game.pendingAbility,

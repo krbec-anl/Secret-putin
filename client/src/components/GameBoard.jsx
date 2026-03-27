@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 const POLICY_NAMES = {
   pro_west: 'Prozápadní',
@@ -19,8 +19,20 @@ const CHARACTER_EMOJIS = {
 function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResult }) {
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [fialaCand1, setFialaCand1] = useState(null);
+  const [localVoted, setLocalVoted] = useState(false);
+  const [localFialaVoted, setLocalFialaVoted] = useState(false);
+  const prevPhaseRef = useRef(null);
 
   const gs = gameState;
+
+  // Reset local vote state when phase changes
+  useEffect(() => {
+    if (prevPhaseRef.current !== gs.phase) {
+      prevPhaseRef.current = gs.phase;
+      setLocalVoted(false);
+      setLocalFialaVoted(false);
+    }
+  }, [gs.phase]);
   const me = gs.players.find(p => p.id === playerId);
   const president = gs.players.find(p => p.id === gs.presidentId);
   const minister = gs.players.find(p => p.id === gs.ministerId);
@@ -47,8 +59,17 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
     emit('nominate_minister', { targetId });
   }, [emit, president, me, isPresident, fialaCand1]);
 
-  const handleVote = useCallback((vote) => emit('vote', { vote }), [emit]);
-  const handleFialaVote = useCallback((candidateId) => emit('fiala_vote', { candidateId }), [emit]);
+  const handleVote = useCallback((vote) => {
+    if (localVoted) return;
+    setLocalVoted(true);
+    emit('vote', { vote });
+  }, [emit, localVoted]);
+
+  const handleFialaVote = useCallback((candidateId) => {
+    if (localFialaVoted) return;
+    setLocalFialaVoted(true);
+    emit('fiala_vote', { candidateId });
+  }, [emit, localFialaVoted]);
   const handlePresidentDiscard = useCallback((index) => emit('president_discard', { discardIndex: index }), [emit]);
   const handleMinisterDiscard = useCallback((index) => emit('minister_discard', { discardIndex: index }), [emit]);
   const handleVetoRequest = useCallback(() => emit('veto_request', {}), [emit]);
@@ -221,23 +242,25 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
       }
 
       case 'fiala_vote': {
+        const fWhoVoted = gs.votes?._whoVoted || [];
+        const fServerVoted = fWhoVoted.includes(playerId);
+        const fAlreadyVoted = localFialaVoted || fServerVoted;
+
         if (isPresident) {
           return (
             <div className="phase-banner phase-waiting">
               <div className="phase-icon">🤝</div>
               <div className="phase-title">Hlasování o kandidátech</div>
-              <div className="phase-description">Hráči vybírají mezi tvými kandidáty...</div>
+              <div className="phase-description">Hráči vybírají mezi tvými kandidáty ({fWhoVoted.length} hlasovalo)...</div>
             </div>
           );
         }
 
-        const alreadyVoted = gs.votes && gs.votes[playerId];
-
-        if (alreadyVoted) {
+        if (fAlreadyVoted) {
           return (
             <div className="phase-banner phase-waiting">
-              <div className="phase-icon">⏳</div>
-              <div className="phase-title">Hlasování o kandidátech</div>
+              <div className="phase-icon">✅</div>
+              <div className="phase-title">Hlas odeslán</div>
               <div className="phase-description">Čekání na ostatní hráče...</div>
             </div>
           );
@@ -247,7 +270,7 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
           <div className="action-area">
             <div className="phase-banner phase-active">
               <div className="phase-icon">🗳️</div>
-              <div className="phase-title">Vyber kandidáta na ministra</div>
+              <div className="phase-title">Klikni na kandidáta kterého chceš za ministra</div>
             </div>
             <div className="vote-buttons">
               {gs.fialaCandidates?.map(cId => {
@@ -264,8 +287,15 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
       }
 
       case 'voting': {
-        const alreadyVoted = gs.votes && gs.votes[playerId] !== undefined;
+        const whoVoted = gs.votes?._whoVoted || [];
+        const serverSaysVoted = whoVoted.includes(playerId);
+        const alreadyVoted = localVoted || serverSaysVoted;
         const myBartosSkip = gs.myBartosSkipNextVote;
+
+        // Show who has voted (not how)
+        const alivePlayers = gs.players.filter(p => p.alive);
+        const votedCount = whoVoted.length;
+        const totalCount = alivePlayers.length;
 
         if (myBartosSkip) {
           return (
@@ -275,6 +305,18 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
               <div className="phase-description">
                 Tvůj hlas je přeskočen (efekt Bartoše)
               </div>
+              {renderWhoVoted(alivePlayers, whoVoted)}
+            </div>
+          );
+        }
+
+        // Already voted - reveal results if available, otherwise show waiting
+        if (gs.votes?._revealed) {
+          return (
+            <div className="phase-banner phase-waiting">
+              <div className="phase-icon">📊</div>
+              <div className="phase-title">Výsledky hlasování</div>
+              {renderVotes()}
             </div>
           );
         }
@@ -282,10 +324,12 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
         if (alreadyVoted) {
           return (
             <div className="phase-banner phase-waiting">
-              <div className="phase-icon">⏳</div>
-              <div className="phase-title">Hlasování probíhá</div>
-              <div className="phase-description">Čekání na ostatní hráče...</div>
-              {gs.votes._revealed && renderVotes()}
+              <div className="phase-icon">✅</div>
+              <div className="phase-title">Hlas odeslán</div>
+              <div className="phase-description">
+                Čekání na ostatní hráče ({votedCount}/{totalCount} hlasovalo)...
+              </div>
+              {renderWhoVoted(alivePlayers, whoVoted)}
             </div>
           );
         }
@@ -298,12 +342,21 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
               <div className="phase-description">
                 Chceš vládu 👑 {president?.name} + 🏛️ {nominated?.name}? Klikni na ANO nebo NE.
               </div>
+              <div className="vote-progress">
+                {votedCount}/{totalCount} hlasovalo
+              </div>
             </div>
             <div className="vote-buttons">
-              <button className="btn btn-vote-yes" onClick={() => handleVote('ja')}>
+              <button
+                className="btn btn-vote-yes"
+                onClick={() => handleVote('ja')}
+              >
                 ✅ ANO
               </button>
-              <button className="btn btn-vote-no" onClick={() => handleVote('ne')}>
+              <button
+                className="btn btn-vote-no"
+                onClick={() => handleVote('ne')}
+              >
                 ❌ NE
               </button>
             </div>
@@ -499,6 +552,16 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
         );
     }
   };
+
+  const renderWhoVoted = (alivePlayers, whoVoted) => (
+    <div className="who-voted">
+      {alivePlayers.map(p => (
+        <span key={p.id} className={`who-voted-chip ${whoVoted.includes(p.id) ? 'voted' : 'waiting'}`}>
+          {p.name} {whoVoted.includes(p.id) ? '✓' : '…'}
+        </span>
+      ))}
+    </div>
+  );
 
   const renderVotes = () => {
     if (!gs.votes?._revealed) return null;
