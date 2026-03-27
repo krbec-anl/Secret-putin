@@ -158,9 +158,9 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
         return (
           <div className="phase-banner phase-waiting">
             <div className="phase-icon">⏳</div>
-            <div className="phase-title">Čekání na hráče</div>
+            <div className="phase-title">Čekání na ostatní hráče</div>
             <div className="phase-description">
-              Ostatní hráči si ještě prohlíží své role...
+              Až všichni potvrdí svou roli, hra automaticky začne. Čekej prosím...
             </div>
           </div>
         );
@@ -170,9 +170,9 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
           return (
             <div className="phase-banner phase-waiting">
               <div className="phase-icon">👑</div>
-              <div className="phase-title">Nominace ministra</div>
+              <div className="phase-title">Čekej — probíhá nominace</div>
               <div className="phase-description">
-                {president?.name} vybírá kandidáta na ministra...
+                Premiér {president?.name} právě vybírá kandidáta na ministra. Poté budete hlasovat.
               </div>
             </div>
           );
@@ -190,10 +190,10 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
               </div>
               <div className="phase-description">
                 {gs.round === 1
-                  ? 'Jsi premiér! Vyber hráče jako kandidáta na ministra. Ostatní budou hlasovat.'
+                  ? 'Jsi první premiér! Klikni na hráče níže, kterého chceš nominovat za ministra. Ostatní o něm budou hlasovat.'
                   : isFiala
-                    ? `Vyber 2 kandidáty, hráči rozhodnou${fialaCand1 ? ' (vyber druhého)' : ''}`
-                    : 'Vyber hráče jako kandidáta na ministra'}
+                    ? `Klikni na 2 různé hráče jako kandidáty.${fialaCand1 ? ' Vyber druhého kandidáta.' : ''} Ostatní pak vyberou jednoho z nich.`
+                    : 'Klikni na hráče kterého chceš nominovat za ministra. Ostatní o něm budou hlasovat.'}
               </div>
             </div>
             <div className="player-select-grid">
@@ -294,9 +294,9 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
           <div className="action-area">
             <div className="phase-banner phase-active">
               <div className="phase-icon">🗳️</div>
-              <div className="phase-title">Hlasování o vládě</div>
+              <div className="phase-title">Hlasuj ANO nebo NE</div>
               <div className="phase-description">
-                👑 {president?.name} → 🏛️ {nominated?.name}
+                Chceš vládu 👑 {president?.name} + 🏛️ {nominated?.name}? Klikni na ANO nebo NE.
               </div>
             </div>
             <div className="vote-buttons">
@@ -316,9 +316,9 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
           return (
             <div className="phase-banner phase-waiting">
               <div className="phase-icon">📜</div>
-              <div className="phase-title">Legislativa</div>
+              <div className="phase-title">Čekej — premiér vybírá zákony</div>
               <div className="phase-description">
-                {president?.name} vybírá zákony...
+                Premiér {president?.name} dostal 3 zákony a zahodí jeden. Zbylé 2 pošle ministrovi.
               </div>
             </div>
           );
@@ -330,7 +330,7 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
               <div className="phase-icon">📜</div>
               <div className="phase-title">Zahoď 1 zákon</div>
               <div className="phase-description">
-                Klikni na zákon který chceš zahodit. Zbylé 2 pošleš ministrovi.
+                Dostal jsi 3 zákony. Klikni na ten, který chceš zahodit. Zbylé 2 dostane ministr.
               </div>
             </div>
             <div className="policy-cards">
@@ -355,9 +355,9 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
           return (
             <div className="phase-banner phase-waiting">
               <div className="phase-icon">📜</div>
-              <div className="phase-title">Legislativa</div>
+              <div className="phase-title">Čekej — ministr vybírá zákon</div>
               <div className="phase-description">
-                {minister?.name} vybírá zákon k přijetí...
+                Ministr {minister?.name} dostal 2 zákony od premiéra. Jeden zahodí, druhý bude přijat.
               </div>
             </div>
           );
@@ -369,8 +369,8 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
               <div className="phase-icon">📜</div>
               <div className="phase-title">Zahoď 1 zákon</div>
               <div className="phase-description">
-                Klikni na zákon k zahození. Zbývající bude přijat.
-                {gs.vetoUnlocked && ' Můžeš také navrhnout veto!'}
+                Dostal jsi 2 zákony od premiéra. Klikni na ten, který chceš zahodit. Druhý bude přijat!
+                {gs.vetoUnlocked && ' Nebo můžeš navrhnout veto (zahodí oba).'}
               </div>
             </div>
             <div className="policy-cards">

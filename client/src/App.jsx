@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import socket from './socket.js';
 import Lobby from './components/Lobby.jsx';
 import RoleReveal from './components/RoleReveal.jsx';
@@ -7,7 +7,7 @@ import GameOver from './components/GameOver.jsx';
 import RoleWidget from './components/RoleWidget.jsx';
 
 function App() {
-  const [screen, setScreen] = useState('join'); // join, lobby, role_reveal, game, game_over
+  const [screen, setScreen] = useState('join');
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [playerId, setPlayerId] = useState(null);
@@ -17,6 +17,11 @@ function App() {
   const [error, setError] = useState('');
   const [connected, setConnected] = useState(false);
   const [abilityResult, setAbilityResult] = useState(null);
+  const screenRef = useRef('join');
+  const pendingGameStateRef = useRef(null);
+
+  // Keep ref in sync
+  useEffect(() => { screenRef.current = screen; }, [screen]);
 
   useEffect(() => {
     socket.connect();
@@ -38,9 +43,10 @@ function App() {
       setGameState(data);
       if (data.phase === 'game_over') {
         setScreen('game_over');
-      } else if (screen === 'role_reveal') {
-        // Don't switch until player confirms
-      } else if (screen !== 'game_over') {
+      } else if (screenRef.current === 'role_reveal') {
+        // Store it, we'll apply when player confirms
+        pendingGameStateRef.current = data;
+      } else if (screenRef.current !== 'game_over') {
         setScreen('game');
       }
     });
@@ -57,7 +63,7 @@ function App() {
       socket.off('game_state');
       socket.off('error');
     };
-  }, [screen]);
+  }, []); // No dependencies - register once
 
   const createRoom = useCallback(() => {
     if (!playerName.trim()) { setError('Zadej jméno'); return; }
@@ -88,10 +94,14 @@ function App() {
 
   const confirmRole = useCallback(() => {
     socket.emit('role_revealed');
+    // If we already have a pending game state, apply it now
+    if (pendingGameStateRef.current) {
+      setGameState(pendingGameStateRef.current);
+      pendingGameStateRef.current = null;
+    }
     setScreen('game');
   }, []);
 
-  // Show role widget during game and game_over screens
   const showWidget = (screen === 'game' || screen === 'game_over') && gameState;
 
   if (screen === 'join') {
@@ -159,13 +169,8 @@ function App() {
   if (screen === 'game_over' && gameState) {
     return (
       <>
-        <GameOver
-          gameState={gameState}
-          playerId={playerId}
-        />
-        {showWidget && (
-          <RoleWidget gameState={gameState} playerName={playerName} />
-        )}
+        <GameOver gameState={gameState} playerId={playerId} />
+        {showWidget && <RoleWidget gameState={gameState} playerName={playerName} />}
       </>
     );
   }
@@ -179,11 +184,21 @@ function App() {
           socket={socket}
           abilityResult={abilityResult}
           setAbilityResult={setAbilityResult}
+          playerName={playerName}
         />
-        {showWidget && (
-          <RoleWidget gameState={gameState} playerName={playerName} />
-        )}
+        {showWidget && <RoleWidget gameState={gameState} playerName={playerName} />}
       </>
+    );
+  }
+
+  // If screen=game but no gameState yet, show waiting
+  if (screen === 'game' && !gameState) {
+    return (
+      <div className="screen loading-screen">
+        <div className="phase-icon" style={{ fontSize: '3rem' }}>⏳</div>
+        <p>Čekání na ostatní hráče...</p>
+        <p className="waiting-text">Až všichni potvrdí svou roli, hra začne</p>
+      </div>
     );
   }
 
