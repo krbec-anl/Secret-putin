@@ -242,6 +242,11 @@ export function getPublicGameState(game, playerId) {
     pendingAbility: game.pendingAbility,
     pavelProtectedPlayer: game.pavelProtectedPlayer,
     ...(isGameOver ? { winner: game.winner } : {}),
+    // Vote result confirmation data
+    ...(game.phase === PHASE.VOTE_RESULT ? {
+      voteResultData: game.voteResultData,
+      voteResultConfirmed: game.voteResultConfirmed || {},
+    } : {}),
   };
 
   // Player-specific private info

@@ -38,6 +38,9 @@ function RoleReveal({ roleData, onConfirm }) {
           <div className={`role-card-new ${factionClass}`}>
             <div className="role-card-emoji">{emoji}</div>
             <div className="character-name-large">{character.name}</div>
+            {character.satire && (
+              <div className="character-satire">{character.satire}</div>
+            )}
             <div className="character-ability-text">{character.ability}</div>
 
             <div className={`faction-reveal-badge ${factionClass}`}>

@@ -186,7 +186,6 @@ export function handleVote(room, playerId, vote) {
 }
 
 function resolveVote(game) {
-  const alivePlayers = getAlivePlayers(game);
   game.votes._revealed = true;
 
   let jaCount = 0;
@@ -196,39 +195,47 @@ function resolveVote(game) {
     if (pid === '_revealed') continue;
     if (v === 'ja') jaCount++;
     else if (v === 'ne') neCount++;
-    // null = abstain, doesn't count
   }
 
   const passed = jaCount > neCount;
 
+  // Store result and go to VOTE_RESULT phase - wait for all players to confirm
+  game.voteResultData = { passed, jaCount, neCount };
+  game.voteResultConfirmed = {};
+  game.phase = P.VOTE_RESULT;
+
   if (passed) {
     game.log.push(`Hlasování prošlo (${jaCount} Ano / ${neCount} Ne)`);
+  } else {
+    game.log.push(`Hlasování zamítnuto (${jaCount} Ano / ${neCount} Ne)`);
+  }
 
-    // Set minister
+  return { success: true, resolved: true };
+}
+
+// Called after all players confirm vote results
+function applyVoteResult(game) {
+  const { passed } = game.voteResultData;
+
+  if (passed) {
     const ministerPlayer = game.players.find(p => p.id === game.nominatedMinisterId);
     game.ministerIndex = game.players.indexOf(ministerPlayer);
 
-    // Check Putin win condition
     const winCheck = checkWinCondition(game);
     if (winCheck) {
       game.phase = P.GAME_OVER;
       game.winner = winCheck;
-      return { success: true, resolved: true, gameOver: winCheck };
+      return { gameOver: winCheck };
     }
 
-    // Draw policies for president
     game.drawnPolicies = drawPolicies(game, 3);
     game.phase = P.PRESIDENT_DISCARD;
     game.failCounter = 0;
-
-    return { success: true, resolved: true, passed: true };
   } else {
-    game.log.push(`Hlasování zamítnuto (${jaCount} Ano / ${neCount} Ne)`);
     game.failCounter++;
     game.klausRetryAvailable = true;
 
     if (game.failCounter >= 3) {
-      // Auto-enact top policy
       const topPolicy = drawPolicies(game, 1)[0];
       enactPolicy(game, topPolicy);
       game.failCounter = 0;
@@ -240,22 +247,43 @@ function resolveVote(game) {
       if (winCheck) {
         game.phase = P.GAME_OVER;
         game.winner = winCheck;
-        return { success: true, resolved: true, gameOver: winCheck };
+        return { gameOver: winCheck };
       }
 
       game.phase = P.POLICY_ENACTED;
-      return { success: true, resolved: true, passed: false, autoEnacted: true };
+      return {};
     }
 
-    // Move to next president
     game.nominatedMinisterId = null;
     game.ministerIndex = null;
     advancePresident(game);
     game.round++;
     game.phase = P.NOMINATE_MINISTER;
-
-    return { success: true, resolved: true, passed: false };
   }
+
+  game.voteResultData = null;
+  game.voteResultConfirmed = null;
+  return {};
+}
+
+export function handleConfirmVoteResult(room, playerId) {
+  const game = room.game;
+  if (!game || game.phase !== P.VOTE_RESULT) return { error: 'Neplatná fáze' };
+
+  const player = getPlayerById(game, playerId);
+  if (!player || !player.alive) return { error: 'Neplatný hráč' };
+
+  game.voteResultConfirmed[playerId] = true;
+
+  const alivePlayers = getAlivePlayers(game);
+  const allConfirmed = alivePlayers.every(p => game.voteResultConfirmed[p.id]);
+
+  if (allConfirmed) {
+    const result = applyVoteResult(game);
+    return { success: true, allConfirmed: true, ...result };
+  }
+
+  return { success: true, allConfirmed: false };
 }
 
 export function handlePresidentDiscard(room, playerId, discardIndex) {

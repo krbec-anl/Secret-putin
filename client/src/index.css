@@ -1122,6 +1122,33 @@ html, body {
   color: var(--text-muted);
 }
 
+/* Vote result phase */
+.phase-vote-passed {
+  border-color: var(--green);
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.15);
+}
+
+.phase-vote-failed {
+  border-color: var(--red);
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.15);
+}
+
+.vote-confirm-status {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Character satire text */
+.character-satire {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-style: italic;
+  margin-bottom: 16px;
+  line-height: 1.5;
+  padding: 0 8px;
+}
+
 /* ====== GAME OVER ====== */
 .game-over-screen {
   justify-content: center;

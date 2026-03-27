@@ -8,6 +8,7 @@ import {
   handleVote, handlePresidentDiscard, handleMinisterDiscard,
   handleVetoRequest, handleVetoResponse,
   handleExecutiveAction, handleUseAbility,
+  handleConfirmVoteResult,
   handleDisconnect, getPublicGameState, getEndGameReveal,
 } from './rooms.js';
 
@@ -165,6 +166,13 @@ io.on('connection', (socket) => {
         broadcastRoomState(currentRoom);
       }
     }
+  });
+
+  socket.on('confirm_vote_result', (_, callback) => {
+    if (!currentRoom) { callback({ error: 'Nejsi v místnosti' }); return; }
+    const result = handleConfirmVoteResult(currentRoom, currentPlayerId);
+    callback(result);
+    if (result.success) broadcastRoomState(currentRoom);
   });
 
   socket.on('president_discard', ({ discardIndex }, callback) => {

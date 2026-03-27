@@ -31,6 +31,7 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
       prevPhaseRef.current = gs.phase;
       setLocalVoted(false);
       setLocalFialaVoted(false);
+      setLocalVoteConfirmed(false);
     }
   }, [gs.phase]);
   const me = gs.players.find(p => p.id === playerId);
@@ -74,6 +75,12 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
   const handleMinisterDiscard = useCallback((index) => emit('minister_discard', { discardIndex: index }), [emit]);
   const handleVetoRequest = useCallback(() => emit('veto_request', {}), [emit]);
   const handleVetoResponse = useCallback((approve) => emit('veto_response', { approve }), [emit]);
+  const [localVoteConfirmed, setLocalVoteConfirmed] = useState(false);
+  const handleConfirmVoteResult = useCallback(() => {
+    if (localVoteConfirmed) return;
+    setLocalVoteConfirmed(true);
+    emit('confirm_vote_result', {});
+  }, [emit, localVoteConfirmed]);
 
   const handleExecutiveAction = useCallback((action, targetId) => {
     emit('executive_action', { action, targetId }, (res) => {
@@ -360,6 +367,51 @@ function GameBoard({ gameState, playerId, socket, abilityResult, setAbilityResul
                 ❌ NE
               </button>
             </div>
+          </div>
+        );
+      }
+
+      case 'vote_result': {
+        const vr = gs.voteResultData;
+        const confirmed = gs.voteResultConfirmed || {};
+        const iConfirmed = localVoteConfirmed || confirmed[playerId];
+        const alivePlayers2 = gs.players.filter(p => p.alive);
+        const confirmedCount = Object.keys(confirmed).length;
+
+        return (
+          <div className="action-area">
+            <div className={`phase-banner ${vr?.passed ? 'phase-vote-passed' : 'phase-vote-failed'}`}>
+              <div className="phase-icon">{vr?.passed ? '✅' : '❌'}</div>
+              <div className="phase-title">
+                {vr?.passed ? 'Vláda schválena!' : 'Vláda zamítnuta!'}
+              </div>
+              <div className="phase-description">
+                {vr?.jaCount} Ano / {vr?.neCount} Ne
+              </div>
+              {renderVotes()}
+              <div className="vote-confirm-status">
+                {confirmedCount}/{alivePlayers2.length} hráčů potvrdilo
+              </div>
+              <div className="who-voted">
+                {alivePlayers2.map(p => (
+                  <span key={p.id} className={`who-voted-chip ${confirmed[p.id] ? 'voted' : 'waiting'}`}>
+                    {p.name} {confirmed[p.id] ? '✓' : '…'}
+                  </span>
+                ))}
+              </div>
+            </div>
+            {!iConfirmed ? (
+              <button
+                className="btn btn-primary btn-glow btn-large"
+                onClick={handleConfirmVoteResult}
+              >
+                Rozumím, pokračovat
+              </button>
+            ) : (
+              <div className="phase-banner phase-waiting" style={{ padding: '12px' }}>
+                <div className="phase-description">Čekání na ostatní hráče...</div>
+              </div>
+            )}
           </div>
         );
       }
